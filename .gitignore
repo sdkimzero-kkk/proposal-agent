@@ -1,0 +1,11 @@
+__pycache__/
+*.py[cod]
+
+input/
+output/
+제안요청서/
+*.pdf
+*.pptx
+*.docx
+
+.env
