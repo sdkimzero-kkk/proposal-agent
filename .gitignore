@@ -1,6 +1,13 @@
+# Python
 __pycache__/
 *.py[cod]
+*.egg-info/
+dist/
+build/
+venv/
+.venv/
 
+# 입출력 파일 (대용량/생성물)
 input/
 output/
 제안요청서/
@@ -8,4 +15,11 @@ output/
 *.pptx
 *.docx
 
+# 민감 정보 ★
 .env
+.env.*
+company_data/
+
+# 로그
+log/
+*.log
