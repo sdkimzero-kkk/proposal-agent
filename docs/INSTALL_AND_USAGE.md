@@ -116,6 +116,11 @@ python main.py generate input/rfp.pdf -n "프로젝트명" -c "발주처명"
 | `-c` / `--client` | 발주처명 | O |
 | `-t` / `--type` | 프로젝트 유형 (아래 참조) | X (자동 판별) |
 | `-o` / `--output` | 출력 디렉토리 | X (기본: output/) |
+| `--pptx-only` | 캐시에서 로드 → PPTX만 재생성 (API 비용 없음) | X |
+| `--force-rfp` | PDF 캐시 무시하고 재파싱 | X |
+| `--force-analysis` | RFP 분석 캐시 무시하고 재분석 | X |
+| `--force-content` | 콘텐츠 생성 캐시 무시하고 재생성 | X |
+| `--cache-dir` | 캐시 디렉토리 경로 (기본: output/cache) | X |
 
 #### 프로젝트 유형 지정
 
@@ -151,6 +156,26 @@ python main.py analyze input/rfp.pdf
 python main.py --help
 python main.py generate --help
 ```
+
+---
+
+#### 캐시 활용 예시
+
+```bash
+# 최초 실행 — 전체 파이프라인 (PDF 파싱 → RFP 분석 → 콘텐츠 생성 → PPTX)
+python main.py generate input/rfp.pdf -n "프로젝트명" -c "발주처"
+
+# PPTX 디자인만 수정할 때 — LLM 비용 0원 ★
+python main.py generate input/rfp.pdf --pptx-only
+
+# 콘텐츠만 재생성 (PDF 파싱·RFP 분석 캐시 재사용)
+python main.py generate input/rfp.pdf --force-content
+
+# RFP 파일 변경 후 전체 재실행
+python main.py generate input/rfp.pdf --force-rfp --force-analysis --force-content
+```
+
+> **캐시 자동 무효화**: RFP 파일 수정 시각이 캐시보다 최신이면 해당 단계부터 자동 재실행됩니다.
 
 ---
 
@@ -193,8 +218,15 @@ $ python main.py generate input/rfp.pdf -n "디지털 마케팅" -c "A공사"
 
 ```
 output/
-  └── 프로젝트명_제안서.pptx     ← 최종 결과물
+├── 프로젝트명_제안서.pptx        ← 최종 결과물
+└── cache/
+    └── {rfp파일명}/
+        ├── rfp_text_cache.json      ← Phase 1 캐시 (PDF 파싱)
+        ├── rfp_analysis_cache.json  ← Phase 2 캐시 (RFP 분석)
+        └── content_cache.json       ← Phase 3 캐시 (콘텐츠 생성)
 ```
+
+캐시 파일은 `output/` 폴더와 함께 `.gitignore`에 의해 자동으로 git에서 제외됩니다.
 
 ### 제안서 구성 (Impact-8 Framework)
 
@@ -536,7 +568,7 @@ max_tokens = 16384 if phase_num == 4 else 8192
 proposal-agent/
 ├── main.py                        # CLI 엔트리포인트
 ├── requirements.txt               # 의존성
-├── .env.example                   # API 키 템플릿
+├── .env                           # API 키 (git 제외)
 │
 ├── config/
 │   ├── proposal_types.py          # 제안서 유형별 설정
@@ -550,18 +582,23 @@ proposal-agent/
 │   │   └── docx_parser.py
 │   ├── agents/                    # Claude AI 에이전트
 │   │   ├── rfp_analyzer.py        # RFP 전략 분석
-│   │   └── content_generator.py   # 8-Phase 콘텐츠 생성
+│   │   └── content_generator.py   # 8-Phase 콘텐츠 생성 (Phase별 컨텍스트 슬라이싱)
 │   ├── schemas/                   # Pydantic 데이터 모델
 │   │   ├── proposal_schema.py
 │   │   └── rfp_schema.py
 │   ├── generators/
 │   │   ├── slide_kit.py           # PPTX 렌더링 엔진 (2,270줄)
 │   │   └── pptx_generator.py
-│   └── orchestrators/             # 워크플로우 조율
-│       └── proposal_orchestrator.py
+│   ├── orchestrators/             # 워크플로우 조율
+│   │   └── proposal_orchestrator.py  # 3단계 캐싱 통합
+│   └── utils/
+│       ├── cache_manager.py       # JSON 캐시 관리자 ★ NEW
+│       └── ...
 │
-├── input/                         # RFP 입력 폴더
-├── output/                        # PPTX 출력 폴더
+├── input/                         # RFP 입력 폴더 (git 제외)
+├── output/                        # PPTX 출력 폴더 (git 제외)
+│   └── cache/{rfp명}/             # 파이프라인 캐시 (git 제외)
+├── company_data/                  # 회사 프로필 JSON (git 제외)
 └── docs/                          # 가이드 문서
 ```
 
