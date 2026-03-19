@@ -106,12 +106,12 @@ Claude Code가 자동으로 수행:
 #### 제안서 생성 (기본)
 
 ```bash
-python main.py generate input/rfp.pdf -n "프로젝트명" -c "발주처명"
+python main.py generate input/RFP/rfp.pdf -n "프로젝트명" -c "발주처명"
 ```
 
 | 옵션 | 설명 | 필수 |
 |------|------|------|
-| `input/rfp.pdf` | RFP 파일 경로 (PDF/DOCX) | O |
+| `input/RFP/rfp.pdf` | RFP 파일 경로 (PDF/DOCX) — 기본 위치: `input/RFP/` | O |
 | `-n` / `--name` | 프로젝트명 | O |
 | `-c` / `--client` | 발주처명 | O |
 | `-t` / `--type` | 프로젝트 유형 (아래 참조) | X (자동 판별) |
@@ -125,7 +125,7 @@ python main.py generate input/rfp.pdf -n "프로젝트명" -c "발주처명"
 #### 프로젝트 유형 지정
 
 ```bash
-python main.py generate input/rfp.pdf -n "프로젝트명" -c "발주처" -t marketing_pr
+python main.py generate input/RFP/rfp.pdf -n "프로젝트명" -c "발주처" -t marketing_pr
 ```
 
 지원 유형:
@@ -144,7 +144,7 @@ python main.py generate input/rfp.pdf -n "프로젝트명" -c "발주처" -t mar
 #### RFP 분석만 수행
 
 ```bash
-python main.py analyze input/rfp.pdf
+python main.py analyze input/RFP/rfp.pdf
 ```
 
 제안서를 생성하지 않고 RFP 분석 결과만 확인합니다.
@@ -163,16 +163,16 @@ python main.py generate --help
 
 ```bash
 # 최초 실행 — 전체 파이프라인 (PDF 파싱 → RFP 분석 → 콘텐츠 생성 → PPTX)
-python main.py generate input/rfp.pdf -n "프로젝트명" -c "발주처"
+python main.py generate input/RFP/rfp.pdf -n "프로젝트명" -c "발주처"
 
 # PPTX 디자인만 수정할 때 — LLM 비용 0원 ★
-python main.py generate input/rfp.pdf --pptx-only
+python main.py generate input/RFP/rfp.pdf --pptx-only
 
 # 콘텐츠만 재생성 (PDF 파싱·RFP 분석 캐시 재사용)
-python main.py generate input/rfp.pdf --force-content
+python main.py generate input/RFP/rfp.pdf --force-content
 
 # RFP 파일 변경 후 전체 재실행
-python main.py generate input/rfp.pdf --force-rfp --force-analysis --force-content
+python main.py generate input/RFP/rfp.pdf --force-rfp --force-analysis --force-content
 ```
 
 > **캐시 자동 무효화**: RFP 파일 수정 시각이 캐시보다 최신이면 해당 단계부터 자동 재실행됩니다.
@@ -182,7 +182,7 @@ python main.py generate input/rfp.pdf --force-rfp --force-analysis --force-conte
 ## 4. 실행 흐름
 
 ```
-$ python main.py generate input/rfp.pdf -n "디지털 마케팅" -c "A공사"
+$ python main.py generate input/RFP/rfp.pdf -n "디지털 마케팅" -c "A공사"
 
   ┌─────────────────────────────────────────┐
   │  입찰 제안서 자동 생성 에이전트 v3.0     │
@@ -595,7 +595,8 @@ proposal-agent/
 │       ├── cache_manager.py       # JSON 캐시 관리자 ★ NEW
 │       └── ...
 │
-├── input/                         # RFP 입력 폴더 (git 제외)
+├── input/                         # 입력 폴더 (git 제외)
+│   └── RFP/                       # RFP PDF 저장 위치 ← 여기에 PDF 배치
 ├── output/                        # PPTX 출력 폴더 (git 제외)
 │   └── cache/{rfp명}/             # 파이프라인 캐시 (git 제외)
 ├── company_data/                  # 회사 프로필 JSON (git 제외)
@@ -612,7 +613,7 @@ proposal-agent/
 [ ] Python 3.10+ 설치 확인
 [ ] git clone 완료
 [ ] pip install -r requirements.txt
-[ ] input/ 폴더에 RFP PDF 배치
+[ ] input/RFP/ 폴더에 RFP PDF 배치
 [ ] Claude Code에게 "input 폴더의 RFP를 분석한 후 제안서를 제작해줘" 요청
 [ ] output/ 폴더에서 PPTX 결과물 확인
 ```
@@ -624,7 +625,7 @@ proposal-agent/
 [ ] git clone 완료
 [ ] pip install -r requirements.txt
 [ ] .env 파일에 ANTHROPIC_API_KEY 설정
-[ ] input/ 폴더에 RFP PDF 배치
-[ ] python main.py generate input/rfp.pdf -n "프로젝트명" -c "발주처" 실행
+[ ] input/RFP/ 폴더에 RFP PDF 배치
+[ ] python main.py generate input/RFP/rfp.pdf -n "프로젝트명" -c "발주처" 실행
 [ ] output/ 폴더에서 PPTX 결과물 확인
 ```

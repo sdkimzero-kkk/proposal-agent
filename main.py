@@ -131,9 +131,9 @@ def generate(
     RFP 문서로부터 입찰 제안서(PPTX) 자동 생성 (Impact-8 Framework)
 
     예시:
-        python main.py generate input/rfp.pdf -n "[프로젝트명]" -c "[발주처명]" -t marketing_pr
-        python main.py generate input/rfp.pdf --pptx-only        # PPTX만 재생성 (무료)
-        python main.py generate input/rfp.pdf --force-content    # 콘텐츠만 재생성
+        python main.py generate input/RFP/rfp.pdf -n "[프로젝트명]" -c "[발주처명]" -t marketing_pr
+        python main.py generate input/RFP/rfp.pdf --pptx-only        # PPTX만 재생성 (무료)
+        python main.py generate input/RFP/rfp.pdf --force-content    # 콘텐츠만 재생성
     """
     # API 키 확인 (--pptx-only는 LLM 미사용이므로 불필요)
     api_key = os.getenv("ANTHROPIC_API_KEY")
@@ -177,15 +177,16 @@ def generate(
     # 출력 디렉토리 생성
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    # 레퍼런스 파일 탐색
+    # 레퍼런스 파일 탐색 (input/ 우선, 없으면 input/RFP/ 확인)
     reference_path = reference
     if not reference_path:
-        input_dir = Path("input")
-        if input_dir.exists():
-            pptx_files = list(input_dir.glob("*.pptx"))
-            if pptx_files:
-                reference_path = pptx_files[0]
-                console.print(f"[bold]레퍼런스:[/bold] {reference_path} (자동 탐색)")
+        for search_dir in [Path("input"), Path("input/RFP")]:
+            if search_dir.exists():
+                pptx_files = list(search_dir.glob("*.pptx"))
+                if pptx_files:
+                    reference_path = pptx_files[0]
+                    console.print(f"[bold]레퍼런스:[/bold] {reference_path} (자동 탐색)")
+                    break
 
     # 캐시 상태 출력
     _cache_base = cache_dir or (output_dir / "cache")

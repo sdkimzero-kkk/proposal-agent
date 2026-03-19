@@ -23,6 +23,7 @@ class Settings(BaseModel):
     company_data_dir: Path = base_dir / "company_data"
     output_dir: Path = base_dir / "output"
     input_dir: Path = base_dir / "input"
+    rfp_dir: Path = base_dir / "input" / "RFP"
 
     # PPTX Settings
     default_template: str = "base_template"
