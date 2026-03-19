@@ -101,16 +101,43 @@ def generate(
         "--save-json",
         help="중간 JSON 파일 저장",
     ),
+    pptx_only: bool = typer.Option(
+        False,
+        "--pptx-only",
+        help="캐시된 content_cache.json → PPTX만 재생성 (LLM 호출 없음)",
+    ),
+    force_rfp: bool = typer.Option(
+        False,
+        "--force-rfp",
+        help="PDF 캐시 무시하고 재파싱",
+    ),
+    force_analysis: bool = typer.Option(
+        False,
+        "--force-analysis",
+        help="RFP 분석 캐시 무시하고 재분석 (API 비용 발생)",
+    ),
+    force_content: bool = typer.Option(
+        False,
+        "--force-content",
+        help="콘텐츠 생성 캐시 무시하고 재생성 (API 비용 발생)",
+    ),
+    cache_dir: Optional[Path] = typer.Option(
+        None,
+        "--cache-dir",
+        help="캐시 디렉토리 (기본: output/cache)",
+    ),
 ):
     """
     RFP 문서로부터 입찰 제안서(PPTX) 자동 생성 (Impact-8 Framework)
 
     예시:
         python main.py generate input/rfp.pdf -n "[프로젝트명]" -c "[발주처명]" -t marketing_pr
+        python main.py generate input/rfp.pdf --pptx-only        # PPTX만 재생성 (무료)
+        python main.py generate input/rfp.pdf --force-content    # 콘텐츠만 재생성
     """
-    # API 키 확인
+    # API 키 확인 (--pptx-only는 LLM 미사용이므로 불필요)
     api_key = os.getenv("ANTHROPIC_API_KEY")
-    if not api_key:
+    if not api_key and not pptx_only:
         console.print(
             Panel(
                 "[red]ANTHROPIC_API_KEY가 설정되지 않았습니다.[/red]\n\n"
@@ -160,6 +187,20 @@ def generate(
                 reference_path = pptx_files[0]
                 console.print(f"[bold]레퍼런스:[/bold] {reference_path} (자동 탐색)")
 
+    # 캐시 상태 출력
+    _cache_base = cache_dir or (output_dir / "cache")
+    _rfp_cache_dir = _cache_base / rfp_path.stem
+    if _rfp_cache_dir.exists():
+        from src.utils.cache_manager import CacheManager
+        _cm = CacheManager(_rfp_cache_dir)
+        _info = _cm.info()
+        _hits = [k for k, v in _info.items() if v.get("exists")]
+        if _hits:
+            console.print(f"[dim]캐시 히트: {', '.join(_hits)} ({_rfp_cache_dir})[/dim]")
+
+    if pptx_only:
+        console.print("[bold yellow]--pptx-only: 캐시에서 콘텐츠 로드 → PPTX 재생성[/bold yellow]")
+
     # 비동기 실행
     asyncio.run(
         _generate_async(
@@ -173,6 +214,11 @@ def generate(
             save_json=save_json,
             api_key=api_key,
             reference_path=reference_path,
+            pptx_only=pptx_only,
+            force_rfp=force_rfp,
+            force_analysis=force_analysis,
+            force_content=force_content,
+            cache_dir=cache_dir,
         )
     )
 
@@ -186,10 +232,48 @@ async def _generate_async(
     output_dir: Path,
     template: str,
     save_json: bool,
-    api_key: str,
+    api_key: Optional[str],
     reference_path: Optional[Path] = None,
+    pptx_only: bool = False,
+    force_rfp: bool = False,
+    force_analysis: bool = False,
+    force_content: bool = False,
+    cache_dir: Optional[Path] = None,
 ):
     """비동기 제안서 생성 (Impact-8 Framework)"""
+
+    # --pptx-only: 캐시에서 콘텐츠 로드 후 PPTX만 재생성
+    if pptx_only:
+        from src.utils.cache_manager import CacheManager
+        from src.schemas.proposal_schema import ProposalContent
+        _cache_base = cache_dir or (output_dir / "cache")
+        _cache = CacheManager(_cache_base / rfp_path.stem)
+        cached = _cache.load("content")
+        if cached is None:
+            console.print(
+                Panel(
+                    f"[red]content_cache.json이 없습니다.[/red]\n\n"
+                    f"캐시 위치: {_cache.cache_dir}\n"
+                    f"먼저 일반 실행으로 캐시를 생성하세요:\n"
+                    f"  python main.py generate {rfp_path}",
+                    title="캐시 없음",
+                    border_style="red",
+                )
+            )
+            raise typer.Exit(1)
+
+        content = ProposalContent.model_validate(cached)
+        console.print(f"[green]캐시 로드 완료:[/green] {content.project_name} ({len(content.phases)}개 Phase)")
+
+        # PPTX 생성으로 바로 점프
+        final_project_name = content.project_name
+        safe_filename = final_project_name.replace(" ", "_").replace("/", "-")
+        console.print(f"\n[bold cyan]PPTX 생성 (캐시 기반)[/bold cyan]")
+        pptx_orchestrator = PPTXOrchestrator()
+        output_path = output_dir / f"{safe_filename}_제안서.pptx"
+        pptx_orchestrator.execute(content=content, output_path=output_path, template_name=template)
+        console.print(f"[green]완료:[/green] {output_path}")
+        return
 
     # Phase 0: 레퍼런스 디자인 분석 (선택)
     design_profile = None
@@ -238,6 +322,10 @@ async def _generate_async(
             submission_date=submission_date,
             proposal_type=proposal_type,
             progress_callback=update_progress,
+            cache_dir=cache_dir,
+            force_rfp=force_rfp,
+            force_analysis=force_analysis,
+            force_content=force_content,
         )
 
     console.print("[green]Phase 1 완료[/green]")
